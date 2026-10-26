@@ -102,6 +102,34 @@ label.photo input{position:absolute;width:1px;height:1px;opacity:0}
 
 .note{font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
 .note b{color:var(--fg)}
+.renewbar{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.renewbar.bad{border-left-color:var(--bad)}
+.renewbar p{margin:0;font-size:14px;min-width:0;flex:1 1 180px}
+.renewbar b{font-weight:700}
+.procard{background:var(--accent-soft);border-radius:14px;padding:14px 16px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.procard h3{font-size:18px}
+.procard p{margin:2px 0 0;font-size:13.5px;color:var(--muted)}
+.tag{font-family:var(--display);font-size:11px;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:2px 7px;font-weight:700;vertical-align:middle;margin-left:6px}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);color:var(--fg);width:100%;max-width:560px;max-height:88vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:18px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
+.sheet h2{font-size:22px;font-weight:700}
+.sheet p{margin:0;font-size:14px;color:var(--muted)}
+.checks{display:flex;flex-direction:column;gap:6px}
+.check{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14.5px}
+.check input{width:20px;height:20px;accent-color:var(--accent);flex:none}
+.check span{min-width:0;flex:1}
+.check .chip{flex:none}
+.check small{display:block;color:var(--muted);font-size:12.5px}
+.f select{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:8px;padding:9px 10px;font:inherit;font-size:15px}
+.perks{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.perks li{display:grid;grid-template-columns:22px 1fr;gap:10px;font-size:14.5px}
+.perks li::before{content:"✓";color:var(--accent);font-weight:800}
+.perks small{display:block;color:var(--muted);font-size:13px}
+.price{font-family:var(--display);font-size:28px;font-weight:700}
+.price small{font-family:var(--body);font-size:14px;color:var(--muted);font-weight:500}
+.btn.wide{width:100%;padding:13px;font-size:15.5px}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.soon{font-size:13px;color:var(--warn);background:var(--warn-bg);border-radius:8px;padding:8px 10px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;font-weight:600;z-index:50;max-width:calc(100% - 32px)}
 
 /* Show mode */
@@ -127,10 +155,17 @@ label.photo input{position:absolute;width:1px;height:1px;opacity:0}
 
 <div class="wrap" id="app"></div>
 <div id="lb" class="lightbox" hidden><button id="lbClose" type="button">Close</button><img id="lbImg" alt="Document photo"></div>
+<div id="sheetRoot"></div>
 <div id="toast" class="toast" hidden></div>
 
 <script>
 const KEY = "particulars.v1";
+/* ===== Business settings: change these ===== */
+const RENEW_WHATSAPP = "";            // your WhatsApp number in international format, e.g. "2348031234567". Empty = "coming soon"
+const PRO_PRICE = "₦2,500";           // shown on the Pro screen
+const PRO_PERIOD = "per year";
+const CITIES = ["Lagos","Abuja (FCT)","Ibadan (Oyo)","Abeokuta / Ogun","Port Harcourt","Benin City","Kano","Enugu","Somewhere else"];
+/* ============================================ */
 const DOCS = [
   {id:"licence", name:"Driver's Licence", by:"FRSC", group:"core", exp:true},
   {id:"roadworthy", name:"Certificate of Roadworthiness", by:"VIO / State", group:"core", exp:true},
@@ -258,7 +293,7 @@ function renderEdit(){
       ${d.photo?`<div class="thumb"><img src="${d.photo}" alt="${esc(def.name)} photo"></div>
         <div class="row"><label class="photo btn small" style="border-style:solid">Replace photo<input type="file" accept="image/*" data-photo="${def.id}"></label><button type="button" class="btn small ghost" data-rmphoto="${def.id}">Remove photo</button></div>`
       :`<label class="photo">＋ Add photo or scan<input type="file" accept="image/*" data-photo="${def.id}"></label>`}
-      <div class="row"><button type="button" class="btn small ghost" data-clear="${def.id}">Clear this document</button></div>
+      <div class="row">${def.exp?`<button type="button" class="btn small primary" data-renew="${def.id}">Renew for me</button>`:""}<button type="button" class="btn small ghost" data-clear="${def.id}">Clear this document</button></div>
     </div>
   </details>`;};
   return `
@@ -288,8 +323,11 @@ function renderEdit(){
     <div class="sum bad"><div class="n">${counts.bad}</div><div class="l">Expired</div></div>
     <div class="sum none"><div class="n">${counts.none}</div><div class="l">Missing</div></div>
   </div>
+  ${(()=>{const due=DOCS.filter(def=>def.exp&&["bad","warn"].includes(status(def,S.docs[def.id]).k));if(!due.length)return "";const bad=due.some(def=>status(def,S.docs[def.id]).k==="bad");
+    return `<div class="renewbar ${bad?"bad":""}"><p><b>${due.length} ${due.length===1?"paper needs":"papers need"} renewing.</b> ${esc(due.map(d=>d.name).join(", "))}</p><button type="button" class="btn small primary" data-renew="__due">Renew for me</button></div>`;})()}
   <section class="group"><h2>Main documents <small>Asked for at most checkpoints</small></h2>${DOCS.filter(d=>d.group==="core").map(docCard).join("")}</section>
   <section class="group"><h2>Extra documents <small>Only if they apply to you</small></h2>${DOCS.filter(d=>d.group==="extra").map(docCard).join("")}</section>
+  <div class="procard"><div><h3>Particulars Pro<span class="tag">New</span></h3><p>More cars, backup, and a PDF of all your papers.</p></div><button type="button" class="btn small" id="openPro">See Pro</button></div>
   <div class="note">
     <b>Where your papers are kept</b>
     <span>Everything you add stays on this phone. Nothing is uploaded and there is no account. Uninstalling the app or clearing its data deletes your papers, so keep the originals safe.</span>
@@ -326,6 +364,67 @@ function renderShow(){
     </article>`;}).join(""):`<div class="note">No documents added yet. Tap Done and add your papers first.</div>`}</div>`;
 }
 
+let sheet=null;
+function waLink(text){return "https://wa.me/"+RENEW_WHATSAPP.replace(/\D/g,"")+"?text="+encodeURIComponent(text);}
+function openExternal(url){const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";document.body.appendChild(a);a.click();a.remove();}
+function carLine(){const v=S.vehicle;return [v.make,v.model,v.year,v.colour].filter(Boolean).join(" ")||"My car";}
+function renderSheet(){
+  const root=document.getElementById("sheetRoot");
+  if(!sheet){root.innerHTML="";return;}
+  const v=S.vehicle; let body="";
+  if(sheet.type==="renew"){
+    const opts=DOCS.filter(d=>d.exp);
+    body=`<h2>Renew my papers</h2>
+      <p>Pick what you want renewed. A licensed agent will reply on WhatsApp with the price and how long it takes. You only pay once you agree.</p>
+      <div class="checks">${opts.map(def=>{const st=status(def,S.docs[def.id]);return `<label class="check"><input type="checkbox" data-pick="${def.id}" ${sheet.ids.has(def.id)?"checked":""}><span>${esc(def.name)}<small>${esc(st.k==="none"?"Not added yet":st.sub)}</small></span><span class="chip ${st.k}">${esc(st.t)}</span></label>`;}).join("")}</div>
+      <div class="fields">
+        <div class="f full"><label for="r-city">Where are you?</label><select id="r-city">${CITIES.map(c=>`<option ${sheet.city===c?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
+        <div class="f"><label for="r-name">Your name</label><input id="r-name" value="${esc(sheet.name)}"></div>
+        <div class="f"><label for="r-phone">Phone</label><input id="r-phone" inputmode="tel" value="${esc(sheet.phone)}"></div>
+      </div>
+      ${RENEW_WHATSAPP?"":`<div class="soon">Renewals are launching soon. We'll switch this on as agents join in your city.</div>`}
+      <button type="button" class="btn primary wide" id="sendRenew" ${RENEW_WHATSAPP&&sheet.ids.size?"":"disabled"}>Send request on WhatsApp</button>
+      <button type="button" class="btn ghost wide" data-closesheet>Cancel</button>`;
+  }else if(sheet.type==="pro"){
+    body=`<h2>Particulars Pro</h2>
+      <ul class="perks">
+        <li><span>More than one car<small>Keep papers for every car in the family, or your business.</small></span></li>
+        <li><span>Backup and restore<small>Get your papers back if you lose or change your phone.</small></span></li>
+        <li><span>PDF of all your papers<small>One file to send to an agent, insurer or employer.</small></span></li>
+        <li><span>Priority renewals<small>Your renewal requests go to the front of the queue.</small></span></li>
+      </ul>
+      <div class="price">${esc(PRO_PRICE)} <small>${esc(PRO_PERIOD)}</small></div>
+      <div class="soon">Pro is coming soon. Tap below to get early access at a launch discount.</div>
+      <button type="button" class="btn primary wide" id="joinPro" ${RENEW_WHATSAPP?"":"disabled"}>Get early access</button>
+      <button type="button" class="btn ghost wide" data-closesheet>Not now</button>`;
+  }
+  root.innerHTML=`<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true">${body}</div></div>`;
+}
+function openRenew(which){
+  const ids=new Set();
+  if(which==="__due")DOCS.forEach(def=>{if(def.exp&&["bad","warn"].includes(status(def,S.docs[def.id]).k))ids.add(def.id);});else ids.add(which);
+  sheet={type:"renew",ids,city:sheet&&sheet.city||CITIES[0],name:S.example?"":S.vehicle.owner,phone:S.example?"":S.vehicle.phone};
+  if(S.vehicle.state){const m=CITIES.find(c=>c.toLowerCase().includes(S.vehicle.state.toLowerCase()));if(m)sheet.city=m;}
+  renderSheet();
+}
+function renewMessage(){
+  const v=S.vehicle;const lines=[...sheet.ids].map(id=>{const def=DOCS.find(d=>d.id===id);const d=S.docs[id];return "• "+def.name+(d&&d.expires?" (expires "+fmt(d.expires)+")":"");});
+  return ["Hello Particulars, I'd like to renew:",...lines,"","Car: "+carLine(),"Plate: "+(v.plate||"-")+(v.state?" ("+v.state+")":""),"Location: "+sheet.city,"Name: "+(sheet.name||"-"),"Phone: "+(sheet.phone||"-")].join("\n");
+}
+document.addEventListener("change",e=>{const t=e.target;if(!sheet)return;
+  if(t.dataset.pick){t.checked?sheet.ids.add(t.dataset.pick):sheet.ids.delete(t.dataset.pick);const b=document.getElementById("sendRenew");if(b)b.disabled=!(RENEW_WHATSAPP&&sheet.ids.size);}
+  if(t.id==="r-city")sheet.city=t.value;});
+document.addEventListener("input",e=>{const t=e.target;if(!sheet)return;if(t.id==="r-name")sheet.name=t.value;if(t.id==="r-phone")sheet.phone=t.value;});
+document.addEventListener("click",e=>{
+  const t=e.target;
+  if(t.id==="scrim"||t.closest("[data-closesheet]")){sheet=null;renderSheet();return;}
+  const b=t.closest("button");if(!b)return;
+  if(b.dataset.renew){e.stopPropagation();openRenew(b.dataset.renew);}
+  else if(b.id==="openPro"){sheet={type:"pro"};renderSheet();}
+  else if(b.id==="sendRenew"){openExternal(waLink(renewMessage()));sheet=null;renderSheet();toast("Opening WhatsApp…");}
+  else if(b.id==="joinPro"){openExternal(waLink("Hello Particulars, I'd like early access to Particulars Pro."));sheet=null;renderSheet();}
+},true);
+
 let openIds=new Set();
 function render(){
   const app=document.getElementById("app");
@@ -343,7 +442,7 @@ document.addEventListener("change",async e=>{
   if(t.dataset.doc){doc(t.dataset.doc)[t.dataset.k]=t.value;save();render();}
 });
 document.addEventListener("input",e=>{const t=e.target;if(t.dataset.v){S.vehicle[t.dataset.v]=t.value;const p=document.querySelector(".info .plate");if(p&&(t.dataset.v==="plate"||t.dataset.v==="state"))p.outerHTML=plateHTML(S.vehicle);save();}});
-document.addEventListener("focusin",e=>{if(S.example&&e.target.matches("input:not([type=file])")){S=blankState();save();render();toast("Example cleared — this is now your own car");const id=e.target.id;const el=id&&document.getElementById(id);if(el){const det=el.closest("details");if(det)det.open=true;el.focus();}}});
+document.addEventListener("focusin",e=>{if(S.example&&e.target.matches("input:not([type=file])")&&!e.target.closest(".sheet")){S=blankState();save();render();toast("Example cleared — this is now your own car");const id=e.target.id;const el=id&&document.getElementById(id);if(el){const det=el.closest("details");if(det)det.open=true;el.focus();}}});
 document.addEventListener("click",e=>{
   if(NATIVE){const lab=e.target.closest("label.photo");if(lab){const inp=lab.querySelector("input[type=file]");if(inp){e.preventDefault();nativePhoto(inp.dataset.photo);return;}}}
   const t=e.target.closest("button,[data-zoom]");if(!t)return;
