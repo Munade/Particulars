@@ -45,6 +45,18 @@ Google Play needs a public web link. Easiest options:
 4. **Testing → Closed testing**: upload `app-release.aab`, add at least **12 testers** (their Gmail addresses), and keep the test running for **14 days**. New personal developer accounts must do this before going public.
 5. After 14 days, apply for **Production** access and roll out.
 
+## Step 5: Automatic uploads to Google Play (after the first manual upload)
+
+Google only lets the API update an app that already exists, so upload the first `app-release.aab` by hand (Step 4). After that:
+
+1. In **Google Cloud Console** (console.cloud.google.com), create a project, enable the **Google Play Android Developer API**, then go to **IAM → Service accounts → Create**. Open the new account → **Keys → Add key → JSON** and download the file.
+2. In **Play Console → Users and permissions → Invite new users**, paste the service account's email, give it access to Particulars with **Release to testing tracks** (and **Release to production** if you want), and send the invite.
+3. In GitHub, add a secret named `PLAY_SERVICE_ACCOUNT_JSON` and paste the whole JSON file contents as its value.
+
+Every push to `main` now builds the app and uploads it to the **internal testing** track as a **draft**. To change that, add repository **variables** (Settings → Secrets and variables → Actions → Variables):
+- `PLAY_TRACK`: `internal`, `alpha` (closed testing) or `production`
+- `PLAY_STATUS`: `draft` while the app has never been published; `completed` once it is live, so releases roll out without you pressing anything
+
 ## Making changes
 
 Edit `www/index.html`, push to `main`, and a new build appears in Actions. The version number goes up automatically with each build.

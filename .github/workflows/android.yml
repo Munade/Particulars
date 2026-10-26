@@ -14,6 +14,9 @@ jobs:
       KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
       KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       VERSION_CODE: ${{ github.run_number }}
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      PLAY_TRACK: ${{ vars.PLAY_TRACK || 'internal' }}
+      PLAY_STATUS: ${{ vars.PLAY_STATUS || 'draft' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -63,3 +66,13 @@ jobs:
         with:
           name: particulars-play-bundle-${{ github.run_number }}
           path: android/app/build/outputs/bundle/release/app-release.aab
+
+      - name: Upload to Google Play
+        if: env.KEYSTORE_BASE64 != '' && env.PLAY_SERVICE_ACCOUNT_JSON != ''
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.munade.particulars
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          track: ${{ env.PLAY_TRACK }}
+          status: ${{ env.PLAY_STATUS }}
