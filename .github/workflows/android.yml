@@ -1,0 +1,65 @@
+name: Build Android app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install packages
+        run: npm install
+
+      - name: Create Android project
+        run: npx cap add android
+
+      - name: Apply icons and version
+        run: bash scripts/customize-android.sh
+
+      - name: Copy app into Android project
+        run: npx cap sync android
+
+      - name: Build test APK (install this on your phone)
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Build signed release bundle (upload this to Google Play)
+        if: env.KEYSTORE_BASE64 != ''
+        working-directory: android
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          ./gradlew bundleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/upload.jks" \
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: particulars-test-apk-${{ github.run_number }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        if: env.KEYSTORE_BASE64 != ''
+        with:
+          name: particulars-play-bundle-${{ github.run_number }}
+          path: android/app/build/outputs/bundle/release/app-release.aab
